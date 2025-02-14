@@ -1,0 +1,70 @@
+name: solfa-back-ci-dev
+
+on:
+  # Triggers the workflow on push or pull request events for branches starting with "main"
+  push:
+    branches: [ "main" ]
+
+  # Allows manual execution of the workflow from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository
+      - name: Checkout the code
+        uses: actions/checkout@v4
+
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Build the Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }} .
+
+      # Push the Docker image to Docker Hub
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }}
+
+  modifygit:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository from GitHub
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'hermann225-zrouama/manifests'
+          token: ${{ secrets.PAT_TOKEN }}
+          
+
+      # Modify the image in manifest.yml
+      - name: Modify the image in manifest.yml
+        run: |
+          # Configure Git with a generic name and email for GitHub Actions bot
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Print current working directory for debugging
+          echo "Current working directory:"
+          pwd
+
+          # Update the image reference in manifest.yml
+          sed -i "s+image: .*$+image: ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }}+g" solfa-back/manifest.yml
+
+          # Stage and commit changes
+          git add solfa-back/manifest.yml
+          git commit -m 'Updated image to ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }} by GitHub Actions: Job changemanifest: ${{ github.run_number }}'
+
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use the GitHub token for authentication
