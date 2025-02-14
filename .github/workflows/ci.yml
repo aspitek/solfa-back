@@ -58,7 +58,7 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v4
         with:
-          repository: 'hermann225-zrouama/manifests'
+          repository: 'aspitek/manifests'
           token: ${{ secrets.PAT_TOKEN }}
           
 
