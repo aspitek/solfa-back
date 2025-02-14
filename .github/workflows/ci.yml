@@ -24,6 +24,10 @@ jobs:
             echo "DOCKER_PASSWORD est vide ou non défini"
             exit 1
             fi
+            if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
+            echo "PAT_TOKEN est vide ou non défini"
+            exit 1
+            fi
 
       - name: Checkout the code
         uses: actions/checkout@v4
@@ -38,12 +42,12 @@ jobs:
       # Build the Docker image
       - name: Build Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }} .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }} .
 
       # Push the Docker image to Docker Hub
       - name: Push Docker image
         run: |
-          docker push ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }}
+          docker push ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }}
 
   modifygit:
     needs: build
@@ -70,11 +74,11 @@ jobs:
           pwd
 
           # Update the image reference in manifest.yml
-          sed -i "s+image: .*$+image: ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }}+g" solfa-back/manifest.yml
+          sed -i "s+image: .*$+image: ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }}+g" solfa-back/manifest.yml
 
           # Stage and commit changes
           git add solfa-back/manifest.yml
-          git commit -m 'Updated image to ${{ secrets.DOCKER_USERNAME }}/solfa-back:dev-${{ github.sha }} by GitHub Actions: Job changemanifest: ${{ github.run_number }}'
+          git commit -m 'Updated image to ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }} by GitHub Actions: Job changemanifest: ${{ github.run_number }}'
 
           git push origin main
         env:
