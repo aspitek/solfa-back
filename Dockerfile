@@ -5,7 +5,6 @@ WORKDIR /app
 
 # Copier uniquement go.mod et go.sum
 COPY go.mod ./
-RUN go mod tidy  # Assure la génération de go.sum
 COPY go.sum ./
 
 # Télécharger les dépendances
