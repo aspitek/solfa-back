@@ -72,7 +72,6 @@ jobs:
       - name: Copier le ConfigMap depuis le repo du code
         run: |
           mkdir -p solfa-back/
-          ls solfa-back-code
           cp solfa-back-code/k8s/configMap.yaml solfa-back/configMap.yaml  
       # Modify the image in manifest.yml
       - name: Modify the image in manifest.yml
