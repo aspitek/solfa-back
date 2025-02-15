@@ -4,5 +4,11 @@ metadata:
   name: solfa-back
   namespace: solfa-space
 data:
-  ES_URL: "http://10.242.68.64:9202/"
-  TEST: "fdfsdf"
+  DB_HOST: "147.79.114.72"
+  DB_USER: "admin"
+  DB_PASSWORD: "admin@2025"
+  DB_NAME: "solfa"
+  DB_PORT: 31432
+  ES_HOST: "https://147.79.114.72:32000"
+  ES_USER: "elastic"
+  ES_PASSWORD: "c96bZD90kO31pG3YxX5VY24a"
