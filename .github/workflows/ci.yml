@@ -74,5 +74,6 @@ jobs:
           git commit -m "Mise à jour de l'image et du ConfigMap par GitHub Actions: Job changemanifest: ${{ github.run_number }}"
 
           git push origin main
-        env:
+       env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use the GitHub token for authentication        
+
