@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: solfa-back
+  namespace: solfa-space
+data:
+  ES_URL: "http://10.242.68.64:9202/"
