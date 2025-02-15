@@ -89,7 +89,8 @@ jobs:
 
           # Stage and commit changes
           git add solfa-back/manifest.yml
-          git commit -m 'Updated image to ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }} by GitHub Actions: Job changemanifest: ${{ github.run_number }}'
+          git add solfa-back/configMap.yml
+          git commit -am 'Updated image to ${{ secrets.DOCKER_USERNAME }}/solfa:dev-${{ github.sha }} by GitHub Actions: Job changemanifest: ${{ github.run_number }}'
 
           git push origin main
         env:
