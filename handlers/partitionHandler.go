@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 	"github.com/minio/minio-go/v7"
+	"encoding/json"
+	"strings"
 	
 )
 
@@ -103,4 +105,47 @@ func UploadPartitionHandler(c *gin.Context) {
 		"message": "Partition uploadée avec succès, en attente de validation.",
 		"file":    filePath,
 	})
+}
+
+
+func SearchPartitionsHandler(c *gin.Context) {
+    query := c.Query("q") // Récupère la requête de l'utilisateur
+
+    if query == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Le paramètre 'q' est requis"})
+        return
+    }
+
+    // Construction de la requête Elasticsearch
+    searchQuery := fmt.Sprintf(`{
+        "query": {
+            "multi_match": {
+                "query": "%s",
+                "fields": ["title", "composer", "genre", "category"],
+                "type": "best_fields",
+                "fuzziness": "AUTO"
+            }
+        }
+    }`, query)
+
+    // Exécution de la requête
+    res, err := lib.ESClient.Search(
+        lib.ESClient.Search.WithIndex("partitions"),
+        lib.ESClient.Search.WithBody(strings.NewReader(searchQuery)),
+    )
+
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur Elasticsearch"})
+        return
+    }
+    defer res.Body.Close()
+
+    var result map[string]interface{}
+    if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur de décodage Elasticsearch"})
+        return
+    }
+
+    hits := result["hits"].(map[string]interface{})["hits"].([]interface{})
+    c.JSON(http.StatusOK, gin.H{"results": hits})
 }

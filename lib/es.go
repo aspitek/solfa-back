@@ -22,7 +22,7 @@ import (
 // Client Elasticsearch
 var ESClient *elasticsearch.Client
 
-var partition_index_name = "partitions_with_mapping"
+var partition_index_name = "partitions"
 
 // Initialisation de la connexion à Elasticsearch
 func InitES() {
