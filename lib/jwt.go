@@ -5,6 +5,9 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"solfa-back/models"
 	"errors"
+	"github.com/gin-gonic/gin"
+	"strings"
+	"fmt"
 )
 
 // Clé secrète pour signer le JWT
@@ -42,7 +45,7 @@ func GenerateJWT(user models.User) (string, error) {
 }
 
 
-var JwtSecretKey = []byte("your-secret-key") // clé secrète utilisée pour signer les tokens
+var JwtSecretKey = []byte("tonsecretkey") // clé secrète utilisée pour signer les tokens
 
 
 // Fonction pour parser et valider le token JWT
@@ -66,3 +69,23 @@ func ParseJWT(tokenString string) (*Claims, error) {
 	}
 		return nil, errors.New("token invalide")
 	}
+
+
+// ExtractUserClaims récupère les informations de l'utilisateur depuis le JWT
+func ExtractUserClaims(c *gin.Context) (*Claims, error) {
+	tokenString := c.GetHeader("Authorization")
+
+	if tokenString == "" {
+		return nil, errors.New("token manquant")
+	}
+
+	// Supprimer "Bearer " du token s'il est présent
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+
+	claims, err := ParseJWT(tokenString)
+	if err != nil {
+		return nil, fmt.Errorf("token invalide ou expiré: %v", err)
+	}
+
+	return claims, nil
+}

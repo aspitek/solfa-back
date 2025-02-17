@@ -78,7 +78,7 @@ func SignupHandler(c *gin.Context) {
 		Username:          req.Username,
 		Email:             req.Email,
 		Password:          string(hashedPassword),
-		IsVerified:        false,
+		IsVerified:        true,
 		VerificationToken: verificationToken,
 	}
 
