@@ -8,8 +8,10 @@ import "solfa-back/routes"
 
 func main() {
 	godotenv.Load()
+	
 	lib.InitDB()
 	lib.InitES()
+	lib.InitMC()
 
 	r := gin.Default()
 

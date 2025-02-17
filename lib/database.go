@@ -27,6 +27,7 @@ func InitDB() {
 
 	// Auto-migration
 	db.AutoMigrate(&models.User{})
+	db.AutoMigrate(&models.Partition{})
 
 	DB = db
 }
