@@ -16,5 +16,6 @@ func SetupRoutes(r *gin.Engine) {
 	r.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateCurrentUser)
 	r.GET("/users/:id", middleware.AuthMiddleware(), handlers.GetUserByID)
 	r.POST("/upload", middleware.AuthMiddleware(), handlers.UploadPartitionHandler)
+	r.POST("/validate", middleware.AuthMiddleware(), handlers.ValidatePartitionHandler)
 	r.GET("/search", handlers.SearchPartitionsHandler)
 }

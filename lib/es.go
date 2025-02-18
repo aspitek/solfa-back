@@ -205,3 +205,4 @@ func SearchPartitionByFields(partition models.Partition) (bool, interface{}) {
 
 	return false, nil
 }
+
