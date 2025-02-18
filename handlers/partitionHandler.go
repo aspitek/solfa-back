@@ -89,6 +89,7 @@ func UploadPartitionHandler(c *gin.Context) {
 		ReleaseDate: parsedDate,
 		Path:        filePath, // Le chemin du fichier dans Minio
 		Status:      "staging", // Par défaut, la partition est en état de staging
+		ValidatedBy: "", // L'email de l'utilisateur qui valide la partition
 	}
 
 	// Insérer la partition dans PostgreSQL
@@ -106,6 +107,63 @@ func UploadPartitionHandler(c *gin.Context) {
 		"file":    filePath,
 	})
 }
+
+
+func ValidatePartitionHandler(c *gin.Context) {
+    // Extraire le token de l'utilisateur
+    userToken := c.GetHeader("Authorization")
+    if userToken == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant"})
+        return
+    }
+
+    // Extraire l'email à partir du token
+	claims, err := lib.ExtractUserClaims(c)
+    userEmail := claims.Email
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide " + err.Error()})
+        return
+    }
+
+    // Récupérer l'ID de la partition depuis le corps de la requête
+    var request struct {
+        PartitionID string `json:"partition_id" binding:"required"`
+    }
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Données invalides", "details": err.Error()})
+        return
+    }
+
+    // Rechercher la partition dans la base de données
+    var partition models.Partition
+    if err := lib.DB.First(&partition, "id = ?", request.PartitionID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Partition non trouvée"})
+        return
+    }
+    
+    // Mettre à jour le statut de la partition en 'validated'
+    partition.Status = "validated"
+    partition.ValidatedBy = userEmail // Enregistrer l'email de l'utilisateur validant la partition
+    if err := lib.DB.Save(&partition).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la mise à jour de la partition"})
+        return
+    }
+    
+    // Mettre à jour le statut dans Elasticsearch
+    if err := lib.UpdatePartitionStatusInES(partition.ID, "validated"); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la mise à jour dans Elasticsearch"})
+        return
+    }
+    
+	lib.LogAction("validate_partition", userEmail)
+
+    // Réponse de succès
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Partition validée avec succès",
+        "partition": partition,
+    })
+}
+
 
 
 func SearchPartitionsHandler(c *gin.Context) {

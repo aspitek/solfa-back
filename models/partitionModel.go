@@ -11,6 +11,7 @@ type Partition struct {
 	ReleaseDate time.Time `json:"release_date"`
 	Path        string    `json:"path"`
 	Status      string    `json:"status"`  // "staging" ou "validated"
+	ValidatedBy string	  `json:"validated_by"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
