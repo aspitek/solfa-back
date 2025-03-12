@@ -5,7 +5,6 @@ import "github.com/joho/godotenv"
 import "solfa-back/lib"
 import "solfa-back/routes"
 
-
 func main() {
 	godotenv.Load()
 	
@@ -13,11 +12,10 @@ func main() {
 	lib.InitES()
 	lib.InitMC()
 
-	r := gin.Default()
+  r := gin.Default()
 
-	routes.SetupRoutes(r)
+  routes.SetupRoutes(r)	
 	
-	r.Run(":8080")
+  r.Run(":8080")
 }
-
 

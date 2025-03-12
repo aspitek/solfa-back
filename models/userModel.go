@@ -10,7 +10,8 @@ type User struct {
 	Username          string `json:"username"`
 	Email             string `json:"email" gorm:"unique"`
 	Password          string `json:"-"`
-	IsVerified        bool   `json:"is_verified" gorm:"default:false"`
+	IsAdmin		      bool   `json:"is_admin" gorm:"default:true"`
+	IsVerified        bool   `json:"is_verified" gorm:"default:true"`
 	VerificationToken string `json:"-"`
 }
 

@@ -151,3 +151,45 @@ func SearchPartitionsHandler(c *gin.Context) {
     hits := result["hits"].(map[string]interface{})["hits"].([]interface{})
     c.JSON(http.StatusOK, gin.H{"results": hits})
 }
+
+
+func ValidatePartitionHandler(c *gin.Context) {
+	// Récupérer l'email de l'utilisateur connecté
+	claims, err := lib.ExtractUserClaims(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
+		return
+	}
+
+	// Vérifier si l'utilisateur est un administrateur
+	if !claims.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Vous n'êtes pas autorisé à effectuer cette action"})
+		return
+	}
+
+	// Récupérer l'ID de la partition
+	partitionID := c.Param("id")
+
+	// Récupérer la partition
+	var partition models.Partition
+	if err := lib.DB.First(&partition, partitionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partition non trouvée"})
+		return
+	}
+
+	// Mettre à jour l'état de la partition
+	partition.Status = "validated"
+	partition.ValidatedBy = claims.Email
+
+	if err := lib.DB.Save(&partition).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la validation"})
+		return
+	}
+
+	lib.UpdatePartitionStatus(partition, "validated")
+
+	lib.LogAction("validate_partition", claims.Email)
+
+	// Réponse de succès
+	c.JSON(http.StatusOK, gin.H{"message": "Partition validée avec succès"})
+}

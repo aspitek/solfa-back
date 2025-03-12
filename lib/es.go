@@ -1,22 +1,23 @@
 package lib
 
 import (
+	"bytes"
+	"crypto/md5"
+	"crypto/tls"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"solfa-back/models"
+	"strings"
+	"time"
+	"strconv"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/sirupsen/logrus"
-	"log"
-	"time"
-	"os"
-	"crypto/tls"
-	"net/http"
-	"solfa-back/models"
-	"encoding/json"
-	"bytes"
-	"io"
-	"crypto/md5"
-	"encoding/hex"
-	"fmt"
-	"strings"
 )
 
 // Client Elasticsearch
@@ -206,3 +207,33 @@ func SearchPartitionByFields(partition models.Partition) (bool, interface{}) {
 	return false, nil
 }
 
+func UpdatePartitionStatus(partition models.Partition, status string) {
+	// Mettre à jour le statut de la partition dans Elasticsearch
+	updateQuery := fmt.Sprintf(`
+		{
+			"doc": {
+				"status": "%s"
+			}
+		}`, status)
+
+	// Mettre à jour le document dans Elasticsearch
+	res, err := ESClient.Update(
+		partition_index_name, // Nom de l'index
+		strconv.Itoa(int(partition.ID)),
+		strings.NewReader(updateQuery), // Corps de la requête
+	)
+	if err != nil {
+		fmt.Println("Erreur lors de la mise à jour de la partition:", err)
+		return
+	}
+	defer res.Body.Close()
+
+	// Vérifier le statut de la réponse
+	if res.IsError() {
+		body, _ := io.ReadAll(res.Body)
+		fmt.Println("Erreur Elasticsearch lors de la mise à jour de la partition:", string(body))
+		return
+	}
+
+	fmt.Println("Statut de la partition mis à jour avec succès.")
+}

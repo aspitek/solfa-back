@@ -31,6 +31,7 @@ func GetCurrentUser(c *gin.Context) {
 		"id":       user.ID,
 		"username": user.Username,
 		"email":    user.Email,
+		"is_admin": user.IsAdmin,
 	})
 }
 
