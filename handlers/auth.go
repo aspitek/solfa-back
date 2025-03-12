@@ -164,6 +164,7 @@ func LoginHandler(c *gin.Context) {
 		"username": user.Username,
 		"email":    user.Email,
 		"token":    token,
+		"is_admin": user.IsAdmin,
 	})
 }
 

@@ -17,6 +17,7 @@ var jwtKey = []byte("tonsecretkey")  // Remplace par une clé secrète plus robu
 type Claims struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
+	IsAdmin bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }
 
@@ -30,6 +31,7 @@ func GenerateJWT(user models.User) (string, error) {
 			Issuer:    "solfa-back",           // Issuer, peut être modifié
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // Expiration après 24 heures
 		},
+		IsAdmin: user.IsAdmin,
 	}
 
 	// Créer le token JWT
