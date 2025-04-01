@@ -13,6 +13,7 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/login", handlers.LoginHandler)
 	r.POST("/logout", handlers.LogoutHandler)
 	r.GET("/search", handlers.SearchPartitionsHandler)
+	r.GET("download", handlers.DownloadPartitionHandler)
 
 	adminGroup := r.Group("/admin")
 	adminGroup.Use(middleware.AuthMiddleware())

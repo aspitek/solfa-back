@@ -10,7 +10,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"encoding/json"
 	"strings"
-	
+	"path/filepath"
 )
 
 func UploadPartitionHandler(c *gin.Context) {
@@ -192,4 +192,41 @@ func ValidatePartitionHandler(c *gin.Context) {
 
 	// Réponse de succès
 	c.JSON(http.StatusOK, gin.H{"message": "Partition validée avec succès"})
+}
+
+
+// DownloadPartitionHandler gère le téléchargement d'une partition depuis MinIO
+func DownloadPartitionHandler(c *gin.Context) {
+    // Récupérer le paramètre "path" de la requête
+    path := c.Query("path")
+    if path == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Le paramètre 'path' est requis"})
+        return
+    }
+
+    // Nom du bucket MinIO (conformément à UploadPartitionHandler)
+    bucketName := "solfa"
+
+    // Vérifier si l'objet existe dans le bucket MinIO
+    _, err := lib.MinioClient.StatObject(c, bucketName, path, minio.StatObjectOptions{})
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Fichier non trouvé dans MinIO"})
+        return
+    }
+
+    // Récupérer l'objet depuis MinIO
+    object, err := lib.MinioClient.GetObject(c, bucketName, path, minio.GetObjectOptions{})
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération du fichier depuis MinIO"})
+        return
+    }
+    defer object.Close()
+
+    // Définir les en-têtes pour le téléchargement
+    filename := filepath.Base(path)
+    c.Header("Content-Disposition", "attachment; filename="+filename)
+    c.Header("Content-Type", "application/pdf")
+
+    // Servir le fichier
+    c.DataFromReader(http.StatusOK, -1, "application/pdf", object, nil)
 }
