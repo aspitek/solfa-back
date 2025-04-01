@@ -1,21 +1,30 @@
 package main
 
-import "github.com/gin-gonic/gin"
-import "github.com/joho/godotenv"
-import "solfa-back/lib"
-import "solfa-back/routes"
+import (
+	"solfa-back/lib"
+	"solfa-back/routes"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+)
 
 func main() {
 	godotenv.Load()
-	
+
 	lib.InitDB()
 	lib.InitES()
 	lib.InitMC()
 
-  r := gin.Default()
+	r := gin.Default()
 
-  routes.SetupRoutes(r)	
-	
-  r.Run(":8080")
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // Permettre uniquement les requêtes de ce domaine
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"}, // Méthodes autorisées
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"}, // En-têtes autorisés
+		AllowCredentials: true, // Autoriser les informations d'identification (cookies, etc.)
+	}))
+
+	routes.SetupRoutes(r)
+
+	r.Run(":8080")
 }
-

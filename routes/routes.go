@@ -12,10 +12,15 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/verify", handlers.VerifyEmailHandler)
 	r.POST("/login", handlers.LoginHandler)
 	r.POST("/logout", handlers.LogoutHandler)
-	r.GET("/me", middleware.AuthMiddleware(), handlers.GetCurrentUser)
-	r.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateCurrentUser)
-	r.GET("/users", middleware.AuthMiddleware(), handlers.GetUserByID)
-	r.POST("/upload", middleware.AuthMiddleware(), handlers.UploadPartitionHandler)
 	r.GET("/search", handlers.SearchPartitionsHandler)
-	r.GET("/validate", middleware.AuthMiddleware(), handlers.ValidatePartitionHandler)
+
+	adminGroup := r.Group("/admin")
+	adminGroup.Use(middleware.AuthMiddleware())
+	{
+		adminGroup.GET("/me", middleware.AuthMiddleware(), handlers.GetCurrentUser)
+		adminGroup.PUT("/me", middleware.AuthMiddleware(), handlers.UpdateCurrentUser)
+		adminGroup.GET("/users", middleware.AuthMiddleware(), handlers.GetUserByID)
+		adminGroup.POST("/upload", middleware.AuthMiddleware(), handlers.UploadPartitionHandler)
+		adminGroup.GET("/validate", middleware.AuthMiddleware(), handlers.ValidatePartitionHandler)
+	}
 }
