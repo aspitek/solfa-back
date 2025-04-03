@@ -25,5 +25,6 @@ func SetupRoutes(r *gin.Engine) {
 		adminGroup.POST("/upload", middleware.AuthMiddleware(), handlers.UploadPartitionHandler)
 		adminGroup.GET("/validate", middleware.AuthMiddleware(), handlers.ValidatePartitionHandler)
 		adminGroup.DELETE("/delete/:id", middleware.AuthMiddleware(), handlers.DeletePartitionHandler)
+		adminGroup.GET("/all", middleware.AuthMiddleware(), handlers.GetAllPartitionsHandler)
 	}
 }

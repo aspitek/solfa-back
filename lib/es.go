@@ -54,7 +54,7 @@ func InitES() {
 func LogAction(action string, email string) {
 	logData := map[string]interface{}{
 		"action":    action,
-		"email":     email,
+		"payload":     email,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 
@@ -67,7 +67,7 @@ func LogAction(action string, email string) {
 		// Gestion des erreurs lors de l'indexation dans Elasticsearch
 		logrus.WithFields(logrus.Fields{
 			"action":   action,
-			"email":    email,
+			"payload":    email,
 			"error":    err.Error(),
 		}).Error("Erreur lors de l'enregistrement de l'action dans Elasticsearch")
 		return
@@ -77,7 +77,7 @@ func LogAction(action string, email string) {
 	// Log dans la console pour le suivi
 	logrus.WithFields(logrus.Fields{
 		"action":  action,
-		"email":   email,
+		"payload":   email,
 		"status":  "success",
 	}).Info("Action enregistrée dans Elasticsearch")
 }
@@ -317,4 +317,44 @@ func DeletePartitionFromES(partitionID string) error {
 
     fmt.Println("Partition supprimée avec succès d'Elasticsearch.")
     return nil
+}
+
+// GetAllPartitions récupère toutes les partitions de l'index Elasticsearch
+func GetAllPartitionsFromES() ([]models.Partition, error) {
+	// Rechercher tous les documents dans l'index
+	res, err := ESClient.Search(
+		ESClient.Search.WithIndex(partition_index_name),
+		ESClient.Search.WithBody(strings.NewReader(`{"query": {"match_all": {}}}`)),
+		ESClient.Search.WithSize(10000), // Limiter le nombre de résultats à 10 000
+	)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la recherche dans Elasticsearch : %v", err)
+	}
+	defer res.Body.Close()
+
+	// Vérifier si la recherche a échoué
+	if res.IsError() {
+		return nil, fmt.Errorf("erreur Elasticsearch lors de la recherche : %s", res.String())
+	}
+
+	// Décoder la réponse
+	var result struct {
+		Hits struct {
+			Hits []struct {
+				Source models.Partition `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("erreur lors du décodage de la réponse : %v", err)
+	}
+
+	// Extraire les partitions
+	partitions := make([]models.Partition, len(result.Hits.Hits))
+	for i, hit := range result.Hits.Hits {
+		partitions[i] = hit.Source
+	}
+
+	return partitions, nil
 }

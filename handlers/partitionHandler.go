@@ -14,6 +14,19 @@ import (
 )
 
 func UploadPartitionHandler(c *gin.Context) {
+	token := c.Request.Header.Get("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant"})
+		return
+	}
+
+	// Vérifier le token
+	claims, err := lib.ExtractUserClaimsFromToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
+		return
+	}
+
 	// Récupérer les informations JSON et le fichier
 	var request struct {
 		Title       string `json:"title" binding:"required"`
@@ -100,6 +113,7 @@ func UploadPartitionHandler(c *gin.Context) {
 
 	// Indexer la partition dans Elasticsearch
 	lib.IndexPartitionInES(partition)
+	lib.LogAction("upload", claims.Email + " | " + partition.Title)
 
 	// Réponse de succès
 	c.JSON(http.StatusOK, gin.H{
@@ -148,6 +162,7 @@ func SearchPartitionsHandler(c *gin.Context) {
         return
     }
 
+	lib.LogAction("search", query)
     hits := result["hits"].(map[string]interface{})["hits"].([]interface{})
     c.JSON(http.StatusOK, gin.H{"results": hits})
 }
@@ -227,6 +242,7 @@ func DownloadPartitionHandler(c *gin.Context) {
     c.Header("Content-Disposition", "attachment; filename="+filename)
     c.Header("Content-Type", "application/pdf")
 
+	lib.LogAction("download", path)
     // Servir le fichier
     c.DataFromReader(http.StatusOK, -1, "application/pdf", object, nil)
 }
@@ -279,6 +295,32 @@ func DeletePartitionHandler(c *gin.Context) {
 }
 
 
+func GetAllPartitionsHandler(c *gin.Context) {
+	// Recuperer toute la liste des partitions depuis Elasticsearch
+	partitions, err := lib.GetAllPartitionsFromES()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des partitions"})
+		return
+	}
+	// Récupérer l'email de l'utilisateur connecté si disponible dans le cas contraire on mettra une valeur par défaut
+	claims, err := lib.ExtractUserClaims(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
+		return
+	}
+	// Vérifier si l'utilisateur est un administrateur
+	if !claims.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Vous n'êtes pas autorisé à effectuer cette action"})
+		return
+	}
+	// Log de l'action
+	lib.LogAction("get_all_partitions", claims.Email)
+	// Répondre avec la liste des partitions
+	c.JSON(http.StatusOK, gin.H{"partitions": partitions})
+}
+
+
+
 func CheckTokenHandler(c *gin.Context) {
 	// Récupérer le token d'authentification
 	token := c.Request.Header.Get("Authorization")
@@ -294,6 +336,7 @@ func CheckTokenHandler(c *gin.Context) {
 		return
 	}
 
+	lib.LogAction("checking_token_validity", claims.Email)
 	// Répondre avec les informations de l'utilisateur
 	c.JSON(http.StatusOK, gin.H{"user": claims})
 }
