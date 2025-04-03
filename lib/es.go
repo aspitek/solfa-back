@@ -18,6 +18,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/sirupsen/logrus"
+	"context"
 )
 
 // Client Elasticsearch
@@ -236,4 +237,84 @@ func UpdatePartitionStatus(partition models.Partition, status string) {
 	}
 
 	fmt.Println("Statut de la partition mis à jour avec succès.")
+}
+
+
+
+// DeletePartitionFromES supprime une partition de l'index Elasticsearch en utilisant l'ID PostgreSQL
+func DeletePartitionFromES(partitionID string) error {
+    // Étape 1 : Rechercher le document dans Elasticsearch en utilisant l'ID PostgreSQL (champ "id")
+    query := map[string]interface{}{
+        "query": map[string]interface{}{
+            "term": map[string]interface{}{
+                "id": partitionID, // Rechercher le document où le champ "id" correspond à partitionID
+            },
+        },
+    }
+
+    // Utiliser esutil.NewJSONReader pour sérialiser la requête
+    body := esutil.NewJSONReader(query)
+
+    // Effectuer la recherche dans Elasticsearch
+    searchRes, err := ESClient.Search(
+        ESClient.Search.WithContext(context.Background()),
+        ESClient.Search.WithIndex(partition_index_name),
+        ESClient.Search.WithBody(body),
+        ESClient.Search.WithTrackTotalHits(true),
+    )
+    if err != nil {
+        return fmt.Errorf("erreur lors de la recherche dans Elasticsearch : %v", err)
+    }
+    defer searchRes.Body.Close()
+
+    // Vérifier si la recherche a échoué
+    if searchRes.IsError() {
+        return fmt.Errorf("erreur Elasticsearch lors de la recherche : %s", searchRes.String())
+    }
+
+    // Décoder la réponse de recherche
+    var searchResult struct {
+        Hits struct {
+            Total struct {
+                Value int `json:"value"`
+            } `json:"total"`
+            Hits []struct {
+                ID     string                 `json:"_id"`
+                Source map[string]interface{} `json:"_source"`
+            } `json:"hits"`
+        } `json:"hits"`
+    }
+
+    // Utiliser esutil.JSONReader pour décoder la réponse
+    if err := json.NewDecoder(searchRes.Body).Decode(&searchResult); err != nil {
+		return fmt.Errorf("erreur lors du décodage de la réponse de recherche : %v", err)
+	}
+
+    // Vérifier si un document a été trouvé
+    if searchResult.Hits.Total.Value == 0 {
+        return fmt.Errorf("aucun document trouvé avec l'ID %s", partitionID)
+    }
+
+    // Récupérer l'_id du premier document trouvé
+    documentID := searchResult.Hits.Hits[0].ID
+
+    // Étape 2 : Supprimer le document en utilisant l'_id
+    deleteRes, err := ESClient.Delete(
+        partition_index_name,
+        documentID,
+        ESClient.Delete.WithContext(context.Background()),
+        ESClient.Delete.WithRefresh("true"), // Rafraîchir l'index pour que la suppression soit immédiatement visible
+    )
+    if err != nil {
+        return fmt.Errorf("erreur lors de la suppression de la partition : %v", err)
+    }
+    defer deleteRes.Body.Close()
+
+    // Vérifier le statut de la réponse
+    if deleteRes.IsError() {
+        return fmt.Errorf("erreur Elasticsearch lors de la suppression de la partition : %s", deleteRes.String())
+    }
+
+    fmt.Println("Partition supprimée avec succès d'Elasticsearch.")
+    return nil
 }

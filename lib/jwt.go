@@ -91,3 +91,15 @@ func ExtractUserClaims(c *gin.Context) (*Claims, error) {
 
 	return claims, nil
 }
+
+func ExtractUserClaimsFromToken(token string) (*Claims, error) {
+	// Supprimer "Bearer " du token s'il est présent
+	token = strings.TrimPrefix(token, "Bearer ")
+
+	claims, err := ParseJWT(token)
+	if err != nil {
+		return nil, fmt.Errorf("token invalide ou expiré: %v", err)
+	}
+
+	return claims, nil
+}

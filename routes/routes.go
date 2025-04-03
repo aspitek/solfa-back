@@ -14,6 +14,7 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/logout", handlers.LogoutHandler)
 	r.GET("/search", handlers.SearchPartitionsHandler)
 	r.GET("download", handlers.DownloadPartitionHandler)
+	r.GET("/certify", handlers.CheckTokenHandler)
 
 	adminGroup := r.Group("/admin")
 	adminGroup.Use(middleware.AuthMiddleware())
@@ -23,5 +24,6 @@ func SetupRoutes(r *gin.Engine) {
 		adminGroup.GET("/users", middleware.AuthMiddleware(), handlers.GetUserByID)
 		adminGroup.POST("/upload", middleware.AuthMiddleware(), handlers.UploadPartitionHandler)
 		adminGroup.GET("/validate", middleware.AuthMiddleware(), handlers.ValidatePartitionHandler)
+		adminGroup.DELETE("/delete/:id", middleware.AuthMiddleware(), handlers.DeletePartitionHandler)
 	}
 }

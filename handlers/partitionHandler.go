@@ -88,7 +88,7 @@ func UploadPartitionHandler(c *gin.Context) {
 		Category:    request.Category,
 		ReleaseDate: parsedDate,
 		Path:        filePath, // Le chemin du fichier dans Minio
-		Status:      "staging", // Par défaut, la partition est en état de staging
+		Status:      "validated", // Par défaut, la partition est en état de staging
 		ValidatedBy: "", // L'email de l'utilisateur qui valide la partition
 	}
 
@@ -229,4 +229,71 @@ func DownloadPartitionHandler(c *gin.Context) {
 
     // Servir le fichier
     c.DataFromReader(http.StatusOK, -1, "application/pdf", object, nil)
+}
+
+
+func DeletePartitionHandler(c *gin.Context) {
+	// Récupérer l'ID de la partition
+	partitionID := c.Param("id")
+	claims , err := lib.ExtractUserClaimsFromToken(c.Request.Header.Get("Authorization"))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
+		return
+	}
+	// Vérifier si l'utilisateur est un administrateur
+	if !claims.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Vous n'êtes pas autorisé à effectuer cette action"})
+		return
+	}
+	// Vérifier si l'ID de la partition est valide
+	if partitionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de partition manquant"})
+		return
+	}
+
+	// Vérifier si la partition existe
+	var partition models.Partition
+	if err := lib.DB.First(&partition, partitionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Partition non trouvée"})
+		return
+	}
+
+	// Supprimer la partition de PostgreSQL
+	if err := lib.DB.Delete(&partition).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la suppression de la partition"})
+		return
+	}
+
+	// Supprimer la partition de MinIO
+	err = lib.MinioClient.RemoveObject(c, "solfa", partition.Path, minio.RemoveObjectOptions{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la suppression du fichier dans MinIO"})
+		return
+	}
+
+	lib.DeletePartitionFromES(partitionID)
+
+	lib.LogAction("delete_partition", claims.Email)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Partition supprimée avec succès"})
+}
+
+
+func CheckTokenHandler(c *gin.Context) {
+	// Récupérer le token d'authentification
+	token := c.Request.Header.Get("Authorization")
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant"})
+		return
+	}
+
+	// Vérifier le token
+	claims, err := lib.ExtractUserClaimsFromToken(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
+		return
+	}
+
+	// Répondre avec les informations de l'utilisateur
+	c.JSON(http.StatusOK, gin.H{"user": claims})
 }
