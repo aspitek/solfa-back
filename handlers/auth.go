@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"solfa-back/lib"
 	"solfa-back/models"
 	"crypto/rand"
 	"encoding/hex"
 	"net/smtp"
 	"fmt"
 	"strings"
+	"solfa-back/lib"
 )
 
 // SignupRequest représente les données attendues dans la requête

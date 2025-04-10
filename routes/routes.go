@@ -15,6 +15,7 @@ func SetupRoutes(r *gin.Engine) {
 	r.GET("/search", handlers.SearchPartitionsHandler)
 	r.GET("download", handlers.DownloadPartitionHandler)
 	r.GET("/certify", handlers.CheckTokenHandler)
+	r.GET("/revoke", handlers.RevokeTokenHandler)
 
 	adminGroup := r.Group("/admin")
 	adminGroup.Use(middleware.AuthMiddleware())

@@ -86,3 +86,21 @@ func GetUserByID(c *gin.Context) {
 		"email":    user.Email,
 	})
 }
+
+
+// Endpoint pour révoquer un token
+func RevokeTokenHandler(c *gin.Context) {
+    var request struct {
+        Token string `json:"token"`
+    }
+    if err := c.BindJSON(&request); err != nil {
+        c.JSON(400, gin.H{"error": "token requis"})
+        return
+    }
+
+    if err := lib.BlacklistToken(request.Token); err != nil {
+        c.JSON(400, gin.H{"error": err.Error()})
+        return
+    }
+    c.JSON(200, gin.H{"message": "token révoqué avec succès"})
+}
