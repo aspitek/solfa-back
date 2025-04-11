@@ -1,18 +1,30 @@
 package lib
 
 import (
+	"bytes"
+	"crypto/md5"
+	"crypto/tls"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"solfa-back/models"
+	"strings"
+	"time"
+	"strconv"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esutil"
 	"github.com/sirupsen/logrus"
-	"log"
-	"time"
-	"os"
-	"crypto/tls"
-	"net/http"
+	"context"
 )
 
 // Client Elasticsearch
 var ESClient *elasticsearch.Client
+
+var partition_index_name = "partitions"
 
 // Initialisation de la connexion à Elasticsearch
 func InitES() {
@@ -42,7 +54,7 @@ func InitES() {
 func LogAction(action string, email string) {
 	logData := map[string]interface{}{
 		"action":    action,
-		"email":     email,
+		"payload":     email,
 		"timestamp": time.Now().Format(time.RFC3339),
 	}
 
@@ -55,7 +67,7 @@ func LogAction(action string, email string) {
 		// Gestion des erreurs lors de l'indexation dans Elasticsearch
 		logrus.WithFields(logrus.Fields{
 			"action":   action,
-			"email":    email,
+			"payload":    email,
 			"error":    err.Error(),
 		}).Error("Erreur lors de l'enregistrement de l'action dans Elasticsearch")
 		return
@@ -65,7 +77,284 @@ func LogAction(action string, email string) {
 	// Log dans la console pour le suivi
 	logrus.WithFields(logrus.Fields{
 		"action":  action,
-		"email":   email,
+		"payload":   email,
 		"status":  "success",
 	}).Info("Action enregistrée dans Elasticsearch")
+}
+
+// IndexPartitionInES indexe une partition dans Elasticsearch
+func IndexPartitionInES(partition models.Partition) {
+	// Convertir la partition en JSON
+	jsonData, err := json.Marshal(partition)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"partition": partition,
+			"error":     err.Error(),
+		}).Error("Erreur lors de la sérialisation JSON de la partition")
+		return
+	}
+
+	// Debug : Vérifier que le JSON est valide avant l'indexation
+	logrus.WithFields(logrus.Fields{
+		"jsonData": string(jsonData),
+	}).Info("Données JSON à indexer dans Elasticsearch")
+
+	// Indexer dans Elasticsearch avec un buffer bytes.NewReader()
+	res, err := ESClient.Index(
+		partition_index_name,                   // Nom de l'index
+		bytes.NewReader(jsonData),       // Envoyer les données correctement formatées
+	)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"partition": partition,
+			"error":     err.Error(),
+		}).Error("Erreur lors de l'indexation dans Elasticsearch")
+		return
+	}
+	defer res.Body.Close()
+
+	// Vérification du statut de la réponse Elasticsearch
+	if res.IsError() {
+		body, _ := io.ReadAll(res.Body) // Lire la réponse pour un meilleur débogage
+		logrus.WithFields(logrus.Fields{
+			"partition": partition,
+			"status":    res.Status(),
+			"response":  string(body),
+		}).Error("Elasticsearch a renvoyé une erreur lors de l'indexation")
+		return
+	}
+
+	// Log succès
+	logrus.WithFields(logrus.Fields{
+		"partition_id": partition.ID, // Supposant que Partition a un champ ID
+		"status":       "success",
+	}).Info("Partition indexée avec succès dans Elasticsearch")
+}
+
+
+func generateHash(partition models.Partition) string {
+	// Concaténer les champs de la partition
+	data := fmt.Sprintf("%s%s%s", partition.Title, partition.Composer, partition.Genre, partition.Category) 
+	// Générer le hash MD5
+	hash := md5.Sum([]byte(data))
+	return hex.EncodeToString(hash[:])
+}
+
+func SearchPartitionByHash(partition models.Partition) (bool, interface{}) {
+	// Générer le hash de la partition
+	partitionHash := generateHash(partition)
+
+	// Rechercher si ce hash existe déjà dans Elasticsearch
+	res, err := ESClient.Search(
+		ESClient.Search.WithIndex(partition_index_name),
+		ESClient.Search.WithBody(strings.NewReader(fmt.Sprintf(`
+			{
+				"query": {
+					"match": {
+						"partition_hash": "%s"
+					}
+				}
+			}`, partitionHash))),
+	)
+	if err != nil {
+		fmt.Println("Erreur lors de la recherche dans Elasticsearch:", err)
+		return false, nil
+	}
+	defer res.Body.Close()
+
+	// Analyser la réponse pour voir si la partition existe déjà
+	var result map[string]interface{}
+	json.NewDecoder(res.Body).Decode(&result)
+	hits := result["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"]
+	if hits.(float64) > 0 {
+		fmt.Println("Partition similaire déjà présente.")
+		return true, result["hits"].(map[string]interface{})["hits"].([]interface{})[0]
+	}
+
+	return false, nil
+}
+
+func SearchPartitionByFields(partition models.Partition) (bool, interface{}) {
+	// Rechercher sur plusieurs champs de la partition
+	res, err := ESClient.Search(
+		ESClient.Search.WithIndex(partition_index_name),
+		ESClient.Search.WithBody(strings.NewReader(fmt.Sprintf(`
+			{
+				"query": {
+					"multi_match": {
+						"query": "%s",
+						"fields": ["title", "composer", "genre", "category"],
+						"operator": "and",
+						"fuzziness": "AUTO"
+					}
+				}
+			}`, partition.Title)), // Ici tu peux inclure un autre champ (par exemple partition.Title)
+	))
+	if err != nil {
+		fmt.Println("Erreur lors de la recherche dans Elasticsearch:", err)
+		return false, nil
+	}
+	defer res.Body.Close()
+
+	// Analyser la réponse pour voir si la partition existe déjà
+	var result map[string]interface{}
+	json.NewDecoder(res.Body).Decode(&result)
+	hits := result["hits"].(map[string]interface{})["total"].(map[string]interface{})["value"]
+	if hits.(float64) > 0 {
+		fmt.Println("Partition similaire déjà présente.")
+		return true, result["hits"].(map[string]interface{})["hits"].([]interface{})[0]
+	}
+
+	return false, nil
+}
+
+func UpdatePartitionStatus(partition models.Partition, status string) {
+	// Mettre à jour le statut de la partition dans Elasticsearch
+	updateQuery := fmt.Sprintf(`
+		{
+			"doc": {
+				"status": "%s"
+			}
+		}`, status)
+
+	// Mettre à jour le document dans Elasticsearch
+	res, err := ESClient.Update(
+		partition_index_name, // Nom de l'index
+		strconv.Itoa(int(partition.ID)),
+		strings.NewReader(updateQuery), // Corps de la requête
+	)
+	if err != nil {
+		fmt.Println("Erreur lors de la mise à jour de la partition:", err)
+		return
+	}
+	defer res.Body.Close()
+
+	// Vérifier le statut de la réponse
+	if res.IsError() {
+		body, _ := io.ReadAll(res.Body)
+		fmt.Println("Erreur Elasticsearch lors de la mise à jour de la partition:", string(body))
+		return
+	}
+
+	fmt.Println("Statut de la partition mis à jour avec succès.")
+}
+
+
+
+// DeletePartitionFromES supprime une partition de l'index Elasticsearch en utilisant l'ID PostgreSQL
+func DeletePartitionFromES(partitionID string) error {
+    // Étape 1 : Rechercher le document dans Elasticsearch en utilisant l'ID PostgreSQL (champ "id")
+    query := map[string]interface{}{
+        "query": map[string]interface{}{
+            "term": map[string]interface{}{
+                "id": partitionID, // Rechercher le document où le champ "id" correspond à partitionID
+            },
+        },
+    }
+
+    // Utiliser esutil.NewJSONReader pour sérialiser la requête
+    body := esutil.NewJSONReader(query)
+
+    // Effectuer la recherche dans Elasticsearch
+    searchRes, err := ESClient.Search(
+        ESClient.Search.WithContext(context.Background()),
+        ESClient.Search.WithIndex(partition_index_name),
+        ESClient.Search.WithBody(body),
+        ESClient.Search.WithTrackTotalHits(true),
+    )
+    if err != nil {
+        return fmt.Errorf("erreur lors de la recherche dans Elasticsearch : %v", err)
+    }
+    defer searchRes.Body.Close()
+
+    // Vérifier si la recherche a échoué
+    if searchRes.IsError() {
+        return fmt.Errorf("erreur Elasticsearch lors de la recherche : %s", searchRes.String())
+    }
+
+    // Décoder la réponse de recherche
+    var searchResult struct {
+        Hits struct {
+            Total struct {
+                Value int `json:"value"`
+            } `json:"total"`
+            Hits []struct {
+                ID     string                 `json:"_id"`
+                Source map[string]interface{} `json:"_source"`
+            } `json:"hits"`
+        } `json:"hits"`
+    }
+
+    // Utiliser esutil.JSONReader pour décoder la réponse
+    if err := json.NewDecoder(searchRes.Body).Decode(&searchResult); err != nil {
+		return fmt.Errorf("erreur lors du décodage de la réponse de recherche : %v", err)
+	}
+
+    // Vérifier si un document a été trouvé
+    if searchResult.Hits.Total.Value == 0 {
+        return fmt.Errorf("aucun document trouvé avec l'ID %s", partitionID)
+    }
+
+    // Récupérer l'_id du premier document trouvé
+    documentID := searchResult.Hits.Hits[0].ID
+
+    // Étape 2 : Supprimer le document en utilisant l'_id
+    deleteRes, err := ESClient.Delete(
+        partition_index_name,
+        documentID,
+        ESClient.Delete.WithContext(context.Background()),
+        ESClient.Delete.WithRefresh("true"), // Rafraîchir l'index pour que la suppression soit immédiatement visible
+    )
+    if err != nil {
+        return fmt.Errorf("erreur lors de la suppression de la partition : %v", err)
+    }
+    defer deleteRes.Body.Close()
+
+    // Vérifier le statut de la réponse
+    if deleteRes.IsError() {
+        return fmt.Errorf("erreur Elasticsearch lors de la suppression de la partition : %s", deleteRes.String())
+    }
+
+    fmt.Println("Partition supprimée avec succès d'Elasticsearch.")
+    return nil
+}
+
+// GetAllPartitions récupère toutes les partitions de l'index Elasticsearch
+func GetAllPartitionsFromES() ([]models.Partition, error) {
+	// Rechercher tous les documents dans l'index
+	res, err := ESClient.Search(
+		ESClient.Search.WithIndex(partition_index_name),
+		ESClient.Search.WithBody(strings.NewReader(`{"query": {"match_all": {}}}`)),
+		ESClient.Search.WithSize(10000), // Limiter le nombre de résultats à 10 000
+	)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la recherche dans Elasticsearch : %v", err)
+	}
+	defer res.Body.Close()
+
+	// Vérifier si la recherche a échoué
+	if res.IsError() {
+		return nil, fmt.Errorf("erreur Elasticsearch lors de la recherche : %s", res.String())
+	}
+
+	// Décoder la réponse
+	var result struct {
+		Hits struct {
+			Hits []struct {
+				Source models.Partition `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("erreur lors du décodage de la réponse : %v", err)
+	}
+
+	// Extraire les partitions
+	partitions := make([]models.Partition, len(result.Hits.Hits))
+	for i, hit := range result.Hits.Hits {
+		partitions[i] = hit.Source
+	}
+
+	return partitions, nil
 }

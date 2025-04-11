@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"solfa-back/lib"
 	"solfa-back/models"
 	"crypto/rand"
 	"encoding/hex"
 	"net/smtp"
 	"fmt"
 	"strings"
+	"solfa-back/lib"
 )
 
 // SignupRequest représente les données attendues dans la requête
@@ -78,7 +78,7 @@ func SignupHandler(c *gin.Context) {
 		Username:          req.Username,
 		Email:             req.Email,
 		Password:          string(hashedPassword),
-		IsVerified:        false,
+		IsVerified:        true,
 		VerificationToken: verificationToken,
 	}
 
@@ -164,6 +164,7 @@ func LoginHandler(c *gin.Context) {
 		"username": user.Username,
 		"email":    user.Email,
 		"token":    token,
+		"is_admin": user.IsAdmin,
 	})
 }
 
