@@ -39,7 +39,7 @@ func GenerateJWT(user models.User) (string, error) {
         JTI:      fmt.Sprintf("%d", time.Now().UnixNano()),
         RegisteredClaims: jwt.RegisteredClaims{
             Issuer:    "solfa-back",
-            ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
             IssuedAt:  jwt.NewNumericDate(time.Now()),
         },
         IsAdmin: user.IsAdmin,

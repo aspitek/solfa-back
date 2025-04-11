@@ -158,12 +158,20 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie(
+		"auth_token",  // nom du cookie
+		token,         // valeur
+		3600,          // durée de validité en secondes (1h ici)
+		"/",           // path
+		"",            // domaine (laisser vide pour domaine actuel)
+		false,          // secure (mettre à false si en dev sans HTTPS)
+		true,          // httpOnly (empêche l'accès JS, plus sécurisé)
+	)
+
 	// Retourner les infos utilisateur + token
 	c.JSON(http.StatusOK, gin.H{
-		"id":       user.ID,
 		"username": user.Username,
 		"email":    user.Email,
-		"token":    token,
 		"is_admin": user.IsAdmin,
 	})
 }
