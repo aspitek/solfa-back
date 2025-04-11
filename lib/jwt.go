@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v4"
+	"net/http"
 )
 
 // Clé secrète pour signer le JWT
@@ -116,12 +117,13 @@ func BlacklistToken(tokenString string) error {
 
 // ExtractUserClaims
 func ExtractUserClaims(c *gin.Context) (*Claims, error) {
-    tokenString := c.GetHeader("Authorization")
-    if tokenString == "" {
-        return nil, errors.New("token manquant")
-    }
+    tokenString, err := c.Cookie("jwt_token")
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant dans le cookie"})
+		c.Abort()
+		return nil, err
+	}
 
-    tokenString = strings.TrimPrefix(tokenString, "Bearer ")
     claims, err := ParseJWT(tokenString)
     if err != nil {
         return nil, fmt.Errorf("token invalide ou expiré: %v", err)

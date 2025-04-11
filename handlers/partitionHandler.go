@@ -14,14 +14,8 @@ import (
 )
 
 func UploadPartitionHandler(c *gin.Context) {
-	token := c.Request.Header.Get("Authorization")
-	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant"})
-		return
-	}
-
 	// Vérifier le token
-	claims, err := lib.ExtractUserClaimsFromToken(token)
+	claims, err := lib.ExtractUserClaims(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
 		return
@@ -251,16 +245,19 @@ func DownloadPartitionHandler(c *gin.Context) {
 func DeletePartitionHandler(c *gin.Context) {
 	// Récupérer l'ID de la partition
 	partitionID := c.Param("id")
-	claims , err := lib.ExtractUserClaimsFromToken(c.Request.Header.Get("Authorization"))
+
+	claims , err := lib.ExtractUserClaims(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
 		return
 	}
+
 	// Vérifier si l'utilisateur est un administrateur
 	if !claims.IsAdmin {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Vous n'êtes pas autorisé à effectuer cette action"})
 		return
 	}
+
 	// Vérifier si l'ID de la partition est valide
 	if partitionID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ID de partition manquant"})
@@ -302,6 +299,7 @@ func GetAllPartitionsHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des partitions"})
 		return
 	}
+	
 	// Récupérer l'email de l'utilisateur connecté si disponible dans le cas contraire on mettra une valeur par défaut
 	claims, err := lib.ExtractUserClaims(c)
 	if err != nil {
