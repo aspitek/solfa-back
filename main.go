@@ -19,7 +19,8 @@ func main() {
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{
-			"http://localhost:3000",
+			"http://localhost",
+			"http://localhost:5173",
 			"http://srv598321.hstgr.cloud",
 			"https://srv598321.hstgr.cloud",
 			"http://147.79.114.72:32042",
