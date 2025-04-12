@@ -18,7 +18,12 @@ func main() {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // Permettre uniquement les requêtes de ce domaine
+		AllowOrigins:     []string{
+			"http://localhost:3000",
+			"http://srv598321.hstgr.cloud",
+			"https://srv598321.hstgr.cloud",
+			"http://147.79.114.72:32042",
+		}, // Permettre uniquement les requêtes de ce domaine
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"}, // Méthodes autorisées
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"}, // En-têtes autorisés
 		AllowCredentials: true, // Autoriser les informations d'identification (cookies, etc.)
