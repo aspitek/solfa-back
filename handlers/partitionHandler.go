@@ -299,7 +299,7 @@ func GetAllPartitionsHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur lors de la récupération des partitions"})
 		return
 	}
-	
+
 	// Récupérer l'email de l'utilisateur connecté si disponible dans le cas contraire on mettra une valeur par défaut
 	claims, err := lib.ExtractUserClaims(c)
 	if err != nil {
@@ -320,15 +320,8 @@ func GetAllPartitionsHandler(c *gin.Context) {
 
 
 func CheckTokenHandler(c *gin.Context) {
-	// Récupérer le token d'authentification
-	token := c.Request.Header.Get("Authorization")
-	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token manquant"})
-		return
-	}
-
 	// Vérifier le token
-	claims, err := lib.ExtractUserClaimsFromToken(token)
+	claims, err := lib.ExtractUserClaims(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalide ou expiré"})
 		return
