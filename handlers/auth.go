@@ -159,7 +159,7 @@ func LoginHandler(c *gin.Context) {
 	}
 
 	c.SetCookie(
-		"auth_token",  // nom du cookie
+		"jwt_token",  // nom du cookie
 		token,         // valeur
 		3600,          // durée de validité en secondes (1h ici)
 		"/",           // path
